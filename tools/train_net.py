@@ -227,7 +227,7 @@ def train_epoch(
                     loss_extra = [one_loss.item() for one_loss in loss_extra]
             else:
                 # Compute the errors.
-                num_topks_correct = metrics.topks_correct(preds, labels, (1, 5))
+                num_topks_correct = metrics.topks_correct(preds, labels, (1, 1))
                 top1_err, top5_err = [
                     (1.0 - x / preds.size(0)) * 100.0 for x in num_topks_correct
                 ]
@@ -382,7 +382,7 @@ def eval_epoch(
                 if cfg.DATA.IN22k_VAL_IN1K != "":
                     preds = preds[:, :1000]
                 # Compute the errors.
-                num_topks_correct = metrics.topks_correct(preds, labels, (1, 5))
+                num_topks_correct = metrics.topks_correct(preds, labels, (1, 1))
 
                 # Combine the errors across the GPUs.
                 top1_err, top5_err = [
