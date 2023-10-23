@@ -1,10 +1,10 @@
 TRAIN:
   ENABLE: True
-  DATASET: hockey
-  BATCH_SIZE: 16
-  EVAL_PERIOD: 10
+  DATASET: vf
+  BATCH_SIZE: 32
+  EVAL_PERIOD: 1
   CHECKPOINT_PERIOD: 1
-  AUTO_RESUME: True
+  AUTO_RESUME: False
 DATA:
   NUM_FRAMES: 32
   SAMPLING_RATE: 2
@@ -12,7 +12,7 @@ DATA:
   TRAIN_CROP_SIZE: 224
   TEST_CROP_SIZE: 256
   INPUT_CHANNEL_NUM: [3, 3]
-  PATH_TO_DATA_DIR: "/home/jovyan/slowfast/data/Hockey"
+  PATH_TO_DATA_DIR: "/home/jovyan/slowfast/data/VF"
   PATH_LABEL_SEPARATOR: ","
 SLOWFAST:
   ALPHA: 4
@@ -39,7 +39,7 @@ BN:
 SOLVER:
   BASE_LR: 0.1
   LR_POLICY: cosine
-  MAX_EPOCH: 196
+  MAX_EPOCH: 10
   MOMENTUM: 0.9
   WEIGHT_DECAY: 1e-4
   WARMUP_EPOCHS: 34.0
@@ -51,14 +51,31 @@ MODEL:
   MODEL_NAME: SlowFast
   LOSS_FUNC: cross_entropy
   DROPOUT_RATE: 0.5
+  HEAD_ACT: sigmoid
 TEST:
   ENABLE: False
-  DATASET: hockey
+  DATASET: vf
   BATCH_SIZE: 64
 DATA_LOADER:
   NUM_WORKERS: 8
   PIN_MEMORY: True
-NUM_GPUS: 1
+NUM_GPUS: 2
 NUM_SHARDS: 1
 RNG_SEED: 0
-OUTPUT_DIR: .
+OUTPUT_DIR: ./results/vf/slowfast/nopre/
+LOG_MODEL_INFO: True
+TENSORBOARD:
+  ENABLE: True
+  #LOG_DIR: # Leave empty to use cfg.OUTPUT_DIR/runs-{cfg.TRAIN.DATASET} as path.
+  CLASS_NAMES_PATH: "/home/jovyan/slowfast/data/VF/classids.json" # Path to json file providing class_name - id mapping.
+  CONFUSION_MATRIX:
+    ENABLE: True
+    SUBSET_PATH: "/home/jovyan/slowfast/data/VF/classnames.txt" 
+                 # Path to txt file contains class names separated by newline characters.
+                 # Only classes in this file will be visualized in the confusion matrix.
+  HISTOGRAM:
+    ENABLE: True
+    TOPK: 2 #10   # Top-k most frequently predicted classes for each class in the dataset.
+    SUBSET_PATH: "/home/jovyan/slowfast/data/VF/classnames.txt" 
+                 # Path to txt file contains class names separated by newline characters.
+                 # Only classes in this file will be visualized with histograms.
