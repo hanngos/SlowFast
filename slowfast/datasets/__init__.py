@@ -9,6 +9,7 @@ from .kinetics import Kinetics  # noqa
 from .ssv2 import Ssv2  # noqa
 from .hockey import Hockey
 from .movies import Movies
+from .vf import Vf
 
 try:
     from .ptv_datasets import Ptvcharades, Ptvkinetics, Ptvssv2  # noqa
