@@ -103,7 +103,7 @@ def log_json_stats(stats, output_dir=None):
             with pathmgr.open(
                 filename, "a", buffering=1024 if "://" in filename else -1
             ) as f:
-                f.write("json_stats: {:s}\n".format(json_stats))
+                f.write("{:s},\n".format(json_stats))
         except Exception:
             logger.info(
                 "Failed to write to json_stats.log: {}".format(json_stats)

@@ -6,7 +6,11 @@
 import numpy as np
 import os
 import pickle
+import csv
 import torch
+from tqdm import tqdm
+from functools import partial
+tqdm = partial(tqdm, dynamic_ncols=True)
 
 import slowfast.utils.checkpoint as cu
 import slowfast.utils.distributed as du
@@ -16,9 +20,50 @@ import slowfast.visualization.tensorboard_vis as tb
 from slowfast.datasets import loader
 from slowfast.models import build_model
 from slowfast.utils.env import pathmgr
-from slowfast.utils.meters import AVAMeter, TestMeter
+from slowfast.utils.meters import TestMeter
 
 logger = logging.get_logger(__name__)
+
+# @torch.no_grad()
+# def predict(dataloader, model, cfg):
+#     """ Make predictions on data. """
+#     model.eval()
+#     #criterion = hydra.utils.instantiate(cfg.optim.loss)
+    
+#     metrics = []
+#     device = torch.device('cuda')
+#     n_videos = len(dataloader)
+#     progress = tqdm(dataloader, total=n_videos, desc='PRED', leave=False)
+#     for i, sample in enumerate(progress):
+#         logger.info(sample)
+#         logger.info(type(sample))
+#         b_frames, b_labels = sample
+
+#         logger.info(b_frames)
+#         logger.info(b_labels)
+        
+#         # Un-batching
+#         # TODO not efficient, should be done in parallel
+#         for frames, label, video_id in zip(b_frames, b_labels, b_ids):
+#             frames, label = torch.unsqueeze(frames, dim=0).to(device), torch.unsqueeze(label, dim=0).to(device)
+            
+#             # Computing pred
+#             pred = model(frames)
+            
+#             # Accumulate video metric
+#             pred_prob = pred.item()
+#             metrics.append({
+#                 'video_id': video_id,
+#                 'pred_prob': pred_prob,
+#                 'pred_label': int(pred_prob > 0.5),
+#                 'target_label': int(label.item()),
+#             })      
+            
+#             progress.set_description('PRED')
+            
+#     metrics = pd.DataFrame(metrics)       
+
+#     metrics.to_csv(cfg.OUTPUT_DIR + cfg.TEST.SAVE_RESULTS_PATH)
 
 
 @torch.no_grad()
@@ -45,10 +90,10 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
     # Enable eval mode.
     model.eval()
     test_meter.iter_tic()
-
     for cur_iter, (inputs, labels, video_idx, time, meta) in enumerate(
         test_loader
     ):
+      
 
         if cfg.NUM_GPUS:
             # Transfer the data to the current GPU device.
@@ -117,7 +162,9 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
             preds = torch.sum(probs, 1)
         else:
             # Perform the forward pass.
+            test_meter.inf_tic()
             preds = model(inputs)
+            test_meter.inf_toc()
         # Gather all the predictions across all the devices to perform ensemble.
         if cfg.NUM_GPUS > 1:
             preds, labels, video_idx = du.all_gather([preds, labels, video_idx])
@@ -160,6 +207,7 @@ def perform_test(test_loader, model, test_meter, cfg, writer=None):
 
     test_meter.finalize_metrics()
     return test_meter
+
 
 
 def test(cfg):
@@ -229,6 +277,7 @@ def test(cfg):
             )
             # Create meters for multi-view testing.
             test_meter = TestMeter(
+                cfg,
                 test_loader.dataset.num_videos
                 // (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS),
                 cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS,
@@ -253,6 +302,7 @@ def test(cfg):
         test_meters.append(test_meter)
         if writer is not None:
             writer.close()
+        #predict(test_loader, model, cfg)
 
     result_string_views = "_p{:.2f}_f{:.2f}".format(params / 1e6, flops)
 
@@ -273,7 +323,7 @@ def test(cfg):
                 flops,
                 view,
                 test_meter.stats["top1_acc"],
-                test_meter.stats["top5_acc"],
+                test_meter.stats["top1_acc"],
                 misc.gpu_mem_usage(),
                 flops,
             )

@@ -1,2 +1,2 @@
-NonViolence
-Violence
+Fight
+NoFight

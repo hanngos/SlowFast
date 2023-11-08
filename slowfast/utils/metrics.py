@@ -4,6 +4,7 @@
 """Functions for computing metrics."""
 
 import torch
+from torchmetrics.classification import F1Score, Accuracy, Precision, Recall, AUROC, Specificity
 
 
 def topks_correct(preds, labels, ks):
@@ -62,3 +63,33 @@ def topk_accuracies(preds, labels, ks):
     """
     num_topks_correct = topks_correct(preds, labels, ks)
     return [(x / preds.size(0)) * 100.0 for x in num_topks_correct]
+
+def convert_to_binary(preds, labels):
+    preds = [0 if x[0] > x[1] else 1 for x in preds]
+    preds = torch.Tensor(preds)
+    assert preds.size(0) == labels.size(
+        0
+    ), "Batch dim of predictions and labels must match"
+    return preds
+
+def calculate_metrics(preds, labels):
+    auc = AUROC(task="multiclass", num_classes=2)
+    _auc = "AUC: {:.{prec}f}".format(auc(preds, labels) * 100, prec=2)
+    preds = convert_to_binary(preds, labels)
+    
+    f1 = F1Score(task="binary", num_classes=2)
+    acc = Accuracy(task="binary", num_classes=2)
+    prec = Precision(task="binary", num_classes=2)
+    rec = Recall(task="binary", num_classes=2)
+    spc = Specificity(task="binary", num_classes=2)
+    
+    _f1 = "F1: {:.{prec}f}".format(f1(preds, labels) * 100, prec=2)
+    _acc = "Acc: {:.{prec}f}".format(acc(preds, labels) * 100, prec=2)
+    _prec = "Precision: {:.{prec}f}".format(prec(preds, labels) * 100, prec=2)
+    _rec = "Recall: {:.{prec}f}".format(rec(preds, labels) * 100, prec=2)
+    _fa = "False alarm: {:.{prec}f}".format((1-spc(preds, labels)) * 100, prec=2)
+    _ma = "Missing alarm: {:.{prec}f}".format((1-rec(preds, labels)) * 100, prec=2)
+    samples = "Number of samples: {}".format(preds.size(0))
+    
+    return _f1, _acc, _prec, _rec, _auc, _fa, _ma, samples
+    

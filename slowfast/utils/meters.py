@@ -11,16 +11,9 @@ import torch
 from fvcore.common.timer import Timer
 from sklearn.metrics import average_precision_score
 
-import slowfast.datasets.ava_helper as ava_helper
 import slowfast.utils.logging as logging
 import slowfast.utils.metrics as metrics
 import slowfast.utils.misc as misc
-from slowfast.utils.ava_eval_helper import (
-    evaluate_ava,
-    read_csv,
-    read_exclusions,
-    read_labelmap,
-)
 
 logger = logging.get_logger(__name__)
 
@@ -254,6 +247,7 @@ class TestMeter:
 
     def __init__(
         self,
+        cfg,
         num_videos,
         num_clips,
         num_cls,
@@ -275,10 +269,11 @@ class TestMeter:
             ensemble_method (str): method to perform the ensemble, options
                 include "sum", and "max".
         """
-
+        self.output_dir = cfg.OUTPUT_DIR
         self.iter_timer = Timer()
         self.data_timer = Timer()
         self.net_timer = Timer()
+        self.inf_timer = Timer()
         self.num_clips = num_clips
         self.overall_iters = overall_iters
         self.multi_label = multi_label
@@ -358,8 +353,23 @@ class TestMeter:
             "cur_iter": "{}".format(cur_iter + 1),
             "eta": eta,
             "time_diff": self.iter_timer.seconds(),
+            "infer_time": self.inf_timer.seconds(),
+            "dt_data": self.data_timer.seconds(),
+            "dt_net": self.net_timer.seconds(),
         }
-        logging.log_json_stats(stats)
+        logging.log_json_stats(stats, self.output_dir)
+        
+    def inf_tic(self):
+        """
+        Start to record time.
+        """
+        self.inf_timer.reset()
+
+    def inf_toc(self):
+        """
+        Stop to record time.
+        """
+        self.inf_timer.pause()
 
     def iter_tic(self):
         """
@@ -379,7 +389,7 @@ class TestMeter:
         self.data_timer.pause()
         self.net_timer.reset()
 
-    def finalize_metrics(self, ks=(1, 5)):
+    def finalize_metrics(self, ks=(1, 1)):
         """
         Calculate and log the final ensembled metrics.
         ks (tuple): list of top-k values for topk_accuracies. For example,
@@ -418,6 +428,7 @@ class TestMeter:
                 self.stats["top{}_acc".format(k)] = "{:.{prec}f}".format(
                     topk, prec=2
                 )
+            logger.info(metrics.calculate_metrics(self.video_preds, self.video_labels))
         logging.log_json_stats(self.stats)
 
 
